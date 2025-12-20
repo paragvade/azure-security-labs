@@ -1,0 +1,8 @@
+# Terraform local files
+terraform.tfvars
+*.auto.tfvars
+*.tfstate
+*.tfstate.*
+
+# General
+*.log
