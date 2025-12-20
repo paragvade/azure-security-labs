@@ -19,7 +19,7 @@ In this lab:
   - `workload-subnet-a` (workload VM A).
   - `workload-subnet-b` (workload VM B).
   - `firewall-subnet` (central firewall VM).
-  - Route table associated with the workload subnets:
+  - Route table: rt-workloads-via-firewall associated with both workload subnets.
   - Route: `0.0.0.0/0` → Next hop: Virtual appliance → IP of firewall VM NIC.
 
 ## Lab steps (high level)

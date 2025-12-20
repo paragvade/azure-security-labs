@@ -11,81 +11,135 @@ terraform {
 
 provider "azurerm" {
   features {}
-}
 
-# ---------------------------
-# Resource group
-# ---------------------------
+  resource_provider_registrations = "none"
+}
 
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
 }
 
-# ---------------------------
-# Virtual network & subnets
-# ---------------------------
-
 resource "azurerm_virtual_network" "vnet" {
   name                = "vnet-udr-firewall-lab"
-  address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-}
-
-resource "azurerm_subnet" "workload_a" {
-  name                 = "workload-subnet-a"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
-}
-
-resource "azurerm_subnet" "workload_b" {
-  name                 = "workload-subnet-b"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.2.0/24"]
+  address_space       = ["10.0.0.0/16"]
+  private_endpoint_vnet_policies = "Disabled"
 }
 
 resource "azurerm_subnet" "firewall" {
-  name                 = "firewall-subnet"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.0.0/24"]
+  name                                          = "firewall-subnet"
+  resource_group_name                           = azurerm_resource_group.rg.name
+  virtual_network_name                          = azurerm_virtual_network.vnet.name
+  address_prefixes                              = ["10.0.0.0/24"]
+  private_endpoint_network_policies             = "Disabled"
+  private_link_service_network_policies_enabled = true
 }
 
-# ---------------------------
-# Public IPs
-# ---------------------------
+resource "azurerm_subnet" "workload_a" {
+  name                                          = "workload-subnet-a"
+  resource_group_name                           = azurerm_resource_group.rg.name
+  virtual_network_name                          = azurerm_virtual_network.vnet.name
+  address_prefixes                              = ["10.0.1.0/24"]
+  private_endpoint_network_policies             = "Disabled"
+  private_link_service_network_policies_enabled = true
+}
+
+resource "azurerm_subnet" "workload_b" {
+  name                                          = "workload-subnet-b"
+  resource_group_name                           = azurerm_resource_group.rg.name
+  virtual_network_name                          = azurerm_virtual_network.vnet.name
+  address_prefixes                              = ["10.0.2.0/24"]
+  private_endpoint_network_policies             = "Disabled"
+  private_link_service_network_policies_enabled = true
+}
 
 resource "azurerm_public_ip" "fw_pip" {
   name                = "pip-firewall"
-  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
   sku                 = "Standard"
+  sku_tier            = "Regional"
 }
 
 resource "azurerm_public_ip" "vm_a_pip" {
   name                = "pip-vm-a"
-  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
   sku                 = "Standard"
+  sku_tier            = "Regional"
 }
 
 resource "azurerm_public_ip" "vm_b_pip" {
   name                = "pip-vm-b"
-  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
   sku                 = "Standard"
+  sku_tier            = "Regional"
 }
 
-# ---------------------------
-# Network interfaces
-# ---------------------------
+# FIXED: NSG for firewall VM (SSH access) - Priority 100
+resource "azurerm_network_security_group" "fw_nsg" {
+  name                = "nsg-firewall"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
 
+  security_rule {
+    name                       = "SSH"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
+# FIXED: NSG for VM A - Priority 100
+resource "azurerm_network_security_group" "vm_a_nsg" {
+  name                = "nsg-vm-a"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  security_rule {
+    name                       = "SSH"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
+# FIXED: NSG for VM B - Priority 100
+resource "azurerm_network_security_group" "vm_b_nsg" {
+  name                = "nsg-vm-b"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  security_rule {
+    name                       = "SSH"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
+# Network Interfaces (moved BEFORE NSG associations)
 resource "azurerm_network_interface" "fw_nic" {
   name                = "nic-firewall"
   location            = azurerm_resource_group.rg.location
@@ -128,10 +182,23 @@ resource "azurerm_network_interface" "vm_b_nic" {
   }
 }
 
-# ---------------------------
-# Linux VMs (firewall + workloads) using SSH key
-# ---------------------------
+# FIXED: NSG Associations (now AFTER NIC creation)
+resource "azurerm_network_interface_security_group_association" "fw_nsg_assoc" {
+  network_interface_id      = azurerm_network_interface.fw_nic.id
+  network_security_group_id = azurerm_network_security_group.fw_nsg.id
+}
 
+resource "azurerm_network_interface_security_group_association" "vm_a_nsg_assoc" {
+  network_interface_id      = azurerm_network_interface.vm_a_nic.id
+  network_security_group_id = azurerm_network_security_group.vm_a_nsg.id
+}
+
+resource "azurerm_network_interface_security_group_association" "vm_b_nsg_assoc" {
+  network_interface_id      = azurerm_network_interface.vm_b_nic.id
+  network_security_group_id = azurerm_network_security_group.vm_b_nsg.id
+}
+
+# VMs using variables
 resource "azurerm_linux_virtual_machine" "fw_vm" {
   name                = "vm-firewall"
   resource_group_name = azurerm_resource_group.rg.name
@@ -140,11 +207,19 @@ resource "azurerm_linux_virtual_machine" "fw_vm" {
   admin_username      = var.admin_username
   disable_password_authentication = true
 
-  network_interface_ids = [azurerm_network_interface.fw_nic.id]
+  network_interface_ids = [
+    azurerm_network_interface.fw_nic.id,
+  ]
 
   admin_ssh_key {
     username   = var.admin_username
     public_key = var.admin_ssh_public_key
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    name                 = "osdisk-fw"
   }
 
   source_image_reference {
@@ -152,12 +227,6 @@ resource "azurerm_linux_virtual_machine" "fw_vm" {
     offer     = "0001-com-ubuntu-server-focal"
     sku       = "20_04-lts"
     version   = "latest"
-  }
-
-  os_disk {
-    name                 = "osdisk-fw"
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
   }
 }
 
@@ -169,11 +238,19 @@ resource "azurerm_linux_virtual_machine" "vm_a" {
   admin_username      = var.admin_username
   disable_password_authentication = true
 
-  network_interface_ids = [azurerm_network_interface.vm_a_nic.id]
+  network_interface_ids = [
+    azurerm_network_interface.vm_a_nic.id,
+  ]
 
   admin_ssh_key {
     username   = var.admin_username
     public_key = var.admin_ssh_public_key
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    name                 = "osdisk-vm-a"
   }
 
   source_image_reference {
@@ -181,12 +258,6 @@ resource "azurerm_linux_virtual_machine" "vm_a" {
     offer     = "0001-com-ubuntu-server-focal"
     sku       = "20_04-lts"
     version   = "latest"
-  }
-
-  os_disk {
-    name                 = "osdisk-vm-a"
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
   }
 }
 
@@ -198,11 +269,19 @@ resource "azurerm_linux_virtual_machine" "vm_b" {
   admin_username      = var.admin_username
   disable_password_authentication = true
 
-  network_interface_ids = [azurerm_network_interface.vm_b_nic.id]
+  network_interface_ids = [
+    azurerm_network_interface.vm_b_nic.id,
+  ]
 
   admin_ssh_key {
     username   = var.admin_username
     public_key = var.admin_ssh_public_key
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    name                 = "osdisk-vm-b"
   }
 
   source_image_reference {
@@ -211,24 +290,14 @@ resource "azurerm_linux_virtual_machine" "vm_b" {
     sku       = "20_04-lts"
     version   = "latest"
   }
-
-  os_disk {
-    name                 = "osdisk-vm-b"
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
 }
 
-# ---------------------------
-# Route table + UDR
-# ---------------------------
-
+# Route Table for UDR
 resource "azurerm_route_table" "rt_workloads" {
-  name                = "rt-workloads-via-firewall"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  disable_bgp_route_propagation = false
+  name                          = "rt-workloads-via-firewall"
+  location                      = azurerm_resource_group.rg.location
+  resource_group_name           = azurerm_resource_group.rg.name
+  bgp_route_propagation_enabled = true
 }
 
 resource "azurerm_route" "route_all_via_fw" {
@@ -237,7 +306,7 @@ resource "azurerm_route" "route_all_via_fw" {
   route_table_name       = azurerm_route_table.rt_workloads.name
   address_prefix         = "0.0.0.0/0"
   next_hop_type          = "VirtualAppliance"
-  next_hop_in_ip_address = azurerm_network_interface.fw_nic.ip_configuration[0].private_ip_address
+  next_hop_in_ip_address = "10.0.0.4"
 }
 
 resource "azurerm_subnet_route_table_association" "workload_a_assoc" {
