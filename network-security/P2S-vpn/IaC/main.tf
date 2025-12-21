@@ -48,7 +48,7 @@ resource "azurerm_public_ip" "webvm_public_ip" {
   name                = "webvm01-ip"
   location            = azurerm_resource_group.app_rg.location
   resource_group_name = azurerm_resource_group.app_rg.name
-  allocation_method   = "Dynamic"
+  allocation_method   = "Static"
   sku                 = "Standard"
 }
 
@@ -140,7 +140,7 @@ resource "azurerm_public_ip" "gateway_public_ip" {
   name                = "gateway-ip"
   location            = azurerm_resource_group.app_rg.location
   resource_group_name = azurerm_resource_group.app_rg.name
-  allocation_method   = "Dynamic"
+  allocation_method   = "Static"
   sku                 = "Standard"
 }
 
