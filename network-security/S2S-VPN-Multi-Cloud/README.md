@@ -4,6 +4,7 @@ Multi-cloud S2S VPN connection between Azure VNet and AWS VPC.
 - Common use case is connecting resources from on-premises datacenter to Azure securely over the internet.
 - In this lab, we'll establish multi-cloud Site-to-Site VPN connection between Azure Vnet and AWS VPC.
 - This file explains concepts and flow involved in setting up the connection followed by screenshots showing succsessful pings between Azure VM and AWS EC2.
+
  **ExpressRoute** - is completely private connection. Does not traverse through public internet. Offers higher bandwidth and lower latency than VPN. Enterprises neeeding high-throughput, large scale data transfers between on-prem and Azure may prefer this over S2S VPN.
 
 **Architecture diagram**
